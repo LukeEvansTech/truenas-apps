@@ -15,10 +15,12 @@ external_secrets:
   # Traefik / ACME (Cloudflare DNS-01)
   TRAEFIK_CF_DNS_API_TOKEN: op://Home Operations/Cloudflare/dns-api-token
   ACME_EMAIL: op://Home Operations/Cloudflare/acme-email
-  # Garage (already created during the migration)
-  GARAGE_RPC_SECRET: op://Home Operations/garage-nas/rpc_secret
-  GARAGE_ADMIN_TOKEN: op://Home Operations/garage-nas/admin_token
-  GARAGE_WEBUI_ADMIN_PASS: op://Home Operations/garage-nas/WEBUI_AUTH_USER_PASS
   # Dozzle (read-only UI) login
   DOZZLE_ADMIN_USERNAME: op://Home Operations/garage-nas/DOZZLE_USERNAME
   DOZZLE_ADMIN_PASSWORD: op://Home Operations/garage-nas/DOZZLE_AUTH
+  # NOTE: garage is staged out of apps/ (in staged/garage) until the MinIO->Garage
+  # migration finishes and we adopt it. When moving staged/garage back into apps/,
+  # restore these three refs (the items already exist from the migration):
+  #   GARAGE_RPC_SECRET:       op://Home Operations/garage-nas/rpc_secret
+  #   GARAGE_ADMIN_TOKEN:      op://Home Operations/garage-nas/admin_token
+  #   GARAGE_WEBUI_ADMIN_PASS: op://Home Operations/garage-nas/WEBUI_AUTH_USER_PASS

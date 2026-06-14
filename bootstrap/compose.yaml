@@ -12,9 +12,6 @@ secrets:
   1pw_token:
     file: /root/.doco-cd/1pw_token
 
-volumes:
-  data: {}
-
 services:
   app:
     container_name: doco-cd
@@ -22,7 +19,9 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - data:/data
+      # doco-cd state (git clones, deploy journal) on the pool, consolidated under
+      # /mnt/pool/apps/* and snapshotted (not an anonymous volume on the boot area).
+      - /mnt/pool/apps/doco-cd/data:/data
     secrets: ["1pw_token"]
     configs:
       - source: poll-config.yml
