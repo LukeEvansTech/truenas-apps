@@ -86,9 +86,28 @@ device ID matches and folders re-sync, then **apply the DNS playbook** (flips `s
 ### monitoring — replace the standalone exporters
 
 ```bash
-docker rm -f node-exporter smartctl-exporter   # same names + host ports 9100/9633
+docker rm -f node-exporter smartctl-exporter truenas-graphite-exporter  # same names + host ports
 # doco-cd then brings up apps/monitoring on the same ports (stateless; brief scrape gap)
 ```
+
+The **TrueNAS-side** graphite feed is host/DB state (survives the container swap), already created
+via the REST API and only needs doing once:
+
+```bash
+midclt call reporting.exporters.create '{"enabled": true, "name": "prometheus-graphite",
+  "attributes": {"exporter_type": "GRAPHITE", "destination_ip": "127.0.0.1",
+  "destination_port": 9109, "prefix": "truenas", "namespace": "truenas",
+  "update_every": 10, "send_names_instead_of_ids": true, "matching_charts": "*"}}'
+```
+
+> **Metric-naming caveat:** TrueNAS 25.10 netdata emits *custom* charts (`truenas_arcstats`,
+> `truenas_disk_stats`, `truenas_pool.usage`, `truenas_disk_temp`) — not the vanilla netdata
+> charts (`zfs.arcstats`, `disk.io`) the bridge's baked mapping + the 5 upstream Grafana
+> dashboards expect. So the exporter is **up and serving ARC / disk I/O / temps / pool-usage**,
+> but the upstream dashboards need retuning to the `truenas_*` names (or deploy the upstream
+> `netdata.conf` to switch netdata to vanilla charts — risks the TrueNAS Reporting UI + is
+> middleware-overwritten on update, so prefer retuning the dashboards). No pool *state*/scrub
+> chart exists on this box. `prefix` MUST be `truenas` (the mapping hardcodes it).
 
 ### garage — adopt only AFTER the MinIO→Garage migration completes
 
