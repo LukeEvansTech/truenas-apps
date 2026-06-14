@@ -1,0 +1,5 @@
+.env
+*.local
+.DS_Store
+# never commit the 1Password service-account token (lives on the NAS only)
+1pw_token

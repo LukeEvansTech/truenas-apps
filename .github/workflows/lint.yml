@@ -1,0 +1,23 @@
+# Thin caller of LukeEvansTech/shared-workflows super-linter reusable.
+name: Lint
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Top-level: read-only by default (CKV2_GHA_1 / zizmor excessive-permissions).
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    # Per-job: explicit write scopes for super-linter.
+    permissions:
+      contents: read
+      statuses: write
+      pull-requests: write
+    uses: LukeEvansTech/shared-workflows/.github/workflows/super-linter.yml@ac4a92b98017f0d9268a10f5b86da65ec30e73e9 # v1
+    with:
+      soft-launch: true

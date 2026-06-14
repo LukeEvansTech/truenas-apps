@@ -1,0 +1,24 @@
+---
+# doco-cd: GitOps controller config. Auto-discovers each stack under apps/ and
+# deploys it, injecting the secrets below (resolved from 1Password at deploy time
+# via the service-account token on the NAS — see README "Prerequisites").
+working_dir: ./apps
+auto_discover: true
+
+auto_discover_opts:
+  depth: 1
+  delete: true
+
+# ENV_VAR -> op:// reference. doco-cd resolves these (Home Operations vault) and
+# injects them into the compose stacks that reference ${VAR}. No secrets in git.
+external_secrets:
+  # Traefik / ACME (Cloudflare DNS-01)
+  TRAEFIK_CF_DNS_API_TOKEN: op://Home Operations/Cloudflare/dns-api-token
+  ACME_EMAIL: op://Home Operations/Cloudflare/acme-email
+  # Garage (already created during the migration)
+  GARAGE_RPC_SECRET: op://Home Operations/garage-nas/rpc_secret
+  GARAGE_ADMIN_TOKEN: op://Home Operations/garage-nas/admin_token
+  GARAGE_WEBUI_ADMIN_PASS: op://Home Operations/garage-nas/WEBUI_AUTH_USER_PASS
+  # Dozzle (read-only UI) login
+  DOZZLE_ADMIN_USERNAME: op://Home Operations/garage-nas/DOZZLE_USERNAME
+  DOZZLE_ADMIN_PASSWORD: op://Home Operations/garage-nas/DOZZLE_AUTH

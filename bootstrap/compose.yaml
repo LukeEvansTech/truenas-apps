@@ -1,0 +1,41 @@
+---
+# The doco-cd controller itself — the ONE thing deployed by hand (or by the cron
+# in scripts/, see README). It then polls this repo and deploys everything in apps/.
+configs:
+  poll-config.yml:
+    content: |
+      - url: https://github.com/LukeEvansTech/truenas-apps.git
+        reference: main
+        interval: 3600
+
+secrets:
+  1pw_token:
+    file: /root/.doco-cd/1pw_token
+
+volumes:
+  data: {}
+
+services:
+  app:
+    container_name: doco-cd
+    image: ghcr.io/kimdre/doco-cd:0.92.0
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - data:/data
+    secrets: ["1pw_token"]
+    configs:
+      - source: poll-config.yml
+        target: /poll-config.yml
+    environment:
+      TZ: Europe/London
+      LOG_LEVEL: info
+      POLL_CONFIG_FILE: /poll-config.yml
+      SECRET_PROVIDER: 1password
+      SECRET_PROVIDER_ACCESS_TOKEN_FILE: /run/secrets/1pw_token
+    healthcheck:
+      test: [CMD, /doco-cd, healthcheck]
+      start_period: 15s
+      interval: 30s
+      timeout: 5s
+      retries: 3

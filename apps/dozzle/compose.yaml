@@ -1,0 +1,35 @@
+---
+# Read-only container + live-log UI (no start/stop/deploy controls). Simple auth.
+configs:
+  users.yml:
+    content: |
+      users:
+        admin:
+          name: "${DOZZLE_ADMIN_USERNAME}"
+          password: "${DOZZLE_ADMIN_PASSWORD}"
+
+services:
+  dozzle:
+    container_name: dozzle
+    image: amir20/dozzle:v10.6.5
+    restart: unless-stopped
+    expose: ["8080"]
+    configs:
+      - source: users.yml
+        target: /data/users.yml
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - DOZZLE_NO_ANALYTICS=true
+      - DOZZLE_AUTH_PROVIDER=simple
+    networks: ["traefik_network"]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dozzle.rule=Host(`dozzle.codelooks.com`) || Host(`dozzle.core.codelooks.com`)"
+      - "traefik.http.routers.dozzle.entrypoints=websecure"
+      - "traefik.http.routers.dozzle.tls.certresolver=cloudflare"
+      - "traefik.http.services.dozzle.loadbalancer.server.port=8080"
+
+networks:
+  traefik_network:
+    external: true

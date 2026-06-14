@@ -1,0 +1,35 @@
+---
+# Syncthing. GUI fronted by Traefik (HTTPS); sync ports stay direct on the host
+# (peer protocol, can't go through an HTTP proxy). Data dataset unchanged at
+# /mnt/pool/syncthing; config moves to /mnt/pool/apps/syncthing/config on adoption
+# (copy from the old ix-apps path first — see README).
+services:
+  syncthing:
+    container_name: syncthing
+    image: syncthing/syncthing:2.0.16
+    restart: unless-stopped
+    hostname: cr-storage
+    environment:
+      PUID: "568"
+      PGID: "568"
+      TZ: Europe/London
+      STGUIADDRESS: 0.0.0.0:8384
+      STNOUPGRADE: "true"
+    volumes:
+      - /mnt/pool/apps/syncthing/config:/var/syncthing/config
+      - /mnt/pool/syncthing:/syncthing
+    ports:
+      - "22000:22000/tcp" # sync protocol
+      - "22000:22000/udp" # sync (QUIC)
+      - "21027:21027/udp" # local discovery
+    networks: ["traefik_network"]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.syncthing.rule=Host(`syncthing.codelooks.com`) || Host(`syncthing.core.codelooks.com`)"
+      - "traefik.http.routers.syncthing.entrypoints=websecure"
+      - "traefik.http.routers.syncthing.tls.certresolver=cloudflare"
+      - "traefik.http.services.syncthing.loadbalancer.server.port=8384"
+
+networks:
+  traefik_network:
+    external: true

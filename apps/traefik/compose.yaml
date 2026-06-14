@@ -1,0 +1,62 @@
+---
+# Reverse proxy for all NAS apps. Binds the dedicated NAS alias IP 10.32.8.34
+# (TrueNAS UI owns 10.32.8.33:80/443). Wildcard TLS for *.codelooks.com and
+# *.core.codelooks.com via Cloudflare DNS-01.
+services:
+  traefik:
+    image: docker.io/traefik:v3.7.5
+    container_name: traefik
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/London
+      - CF_DNS_API_TOKEN=${TRAEFIK_CF_DNS_API_TOKEN}
+    security_opt:
+      - no-new-privileges:true
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--providers.docker=true"
+      - "--providers.docker.endpoint=unix:///var/run/docker.sock"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=traefik_network"
+      - "--certificatesresolvers.cloudflare.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.cloudflare.acme.storage=/etc/traefik/acme.json"
+      - "--certificatesresolvers.cloudflare.acme.dnschallenge=true"
+      - "--certificatesresolvers.cloudflare.acme.dnschallenge.provider=cloudflare"
+      - "--certificatesresolvers.cloudflare.acme.dnschallenge.resolvers=1.1.1.1:53,1.0.0.1:53"
+      - "--certificatesresolvers.cloudflare.acme.dnschallenge.delaybeforecheck=30"
+      - "--log.level=INFO"
+      - "--accesslog=true"
+      - "--metrics.prometheus=true"
+      - "--metrics.prometheus.addentrypointslabels=true"
+      - "--metrics.prometheus.addserviceslabels=true"
+    ports:
+      - "10.32.8.34:80:80"
+      - "10.32.8.34:443:443"
+    volumes:
+      - acme:/etc/traefik
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: ["traefik_network"]
+    labels:
+      - "traefik.enable=true"
+      # Wildcard certs for both domains (requested once, reused by all routers)
+      - "traefik.http.routers.traefik.tls.domains[0].main=codelooks.com"
+      - "traefik.http.routers.traefik.tls.domains[0].sans=*.codelooks.com"
+      - "traefik.http.routers.traefik.tls.domains[1].main=core.codelooks.com"
+      - "traefik.http.routers.traefik.tls.domains[1].sans=*.core.codelooks.com"
+      # Dashboard (internal)
+      - "traefik.http.routers.traefik.rule=Host(`traefik.core.codelooks.com`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=cloudflare"
+      - "traefik.http.routers.traefik.service=api@internal"
+
+volumes:
+  acme: {}
+
+networks:
+  traefik_network:
+    external: true

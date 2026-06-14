@@ -1,0 +1,25 @@
+---
+# Prometheus exporters scraped by the cluster's Prometheus over the LAN
+# (host networking, NOT behind Traefik): node-exporter :9100, smartctl-exporter :9633.
+services:
+  node-exporter:
+    container_name: node-exporter
+    image: quay.io/prometheus/node-exporter:latest
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    command:
+      - "--path.rootfs=/host/root"
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro
+
+  smartctl-exporter:
+    container_name: smartctl-exporter
+    image: quay.io/prometheuscommunity/smartctl-exporter:latest
+    restart: unless-stopped
+    network_mode: host
+    privileged: true # required to read SMART data from raw devices
