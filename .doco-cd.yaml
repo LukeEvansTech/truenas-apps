@@ -2,10 +2,10 @@
 # doco-cd: GitOps controller config. Auto-discovers each stack under apps/ and
 # deploys it, injecting the secrets below (resolved from 1Password at deploy time
 # via the service-account token on the NAS — see README "Prerequisites").
-working_dir: ./apps
-auto_discover: true
-
-auto_discover_opts:
+name: truenas-apps
+working_dir: apps/
+auto_discovery:
+  enabled: true
   depth: 1
   delete: true
 
