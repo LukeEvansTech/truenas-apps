@@ -13,7 +13,7 @@ auto_discover_opts:
 # injects them into the compose stacks that reference ${VAR}. No secrets in git.
 external_secrets:
   # Traefik / ACME (Cloudflare DNS-01)
-  TRAEFIK_CF_DNS_API_TOKEN: op://Home Operations/Cloudflare/dns-api-token
+  TRAEFIK_CF_DNS_API_TOKEN: op://Home Operations/Cloudflare/truenas-traefik-dns01
   ACME_EMAIL: op://Home Operations/Cloudflare/acme-email
   # Dozzle (read-only UI) login
   DOZZLE_ADMIN_USERNAME: op://Home Operations/garage-nas/DOZZLE_USERNAME

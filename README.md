@@ -18,7 +18,7 @@ secrets in git. Modelled on [mirceanton/truenas-apps](https://github.com/mircean
 | `apps/traefik/`          | reverse proxy on `10.32.8.34`, wildcard TLS for `*.codelooks.com` + `*.core.codelooks.com` (Cloudflare DNS-01). acme/state at `/mnt/pool/apps/traefik` |
 | `apps/dozzle/`           | read-only container/log UI (`dozzle.…`)                                                                        |
 | `apps/monitoring/`       | node-exporter + smartctl-exporter (host network, scraped by cluster Prometheus)                                |
-| `apps/syncthing/`        | Syncthing — GUI via Traefik (`syncthing.…`), sync ports direct on host. config+data at `/mnt/pool/apps/syncthing/{config,data}` |
+| `staged/syncthing/`      | **Syncthing — staged OUT of `apps/`** for the interim rollout (bring up traefik/dozzle/monitoring first); deferred cutover moves it back to `apps/syncthing/`. config+data at `/mnt/pool/apps/syncthing/{config,data}` |
 | `staged/garage/`         | **Garage S3 — staged OUT of `apps/`** until the MinIO→Garage migration finishes (see below). Move back into `apps/garage/` to deploy. Data at `/mnt/pool/apps/garage` |
 
 ## Hostnames (resolve to `10.32.8.34` via OPNsense Unbound)
@@ -35,11 +35,11 @@ secrets in git. Modelled on [mirceanton/truenas-apps](https://github.com/mircean
 | 3 | `docker network create traefik_network` | ✅ done |
 | 4 | Datasets `pool/apps/{traefik,doco-cd,syncthing}` | ✅ done |
 | 5 | `op` items: `Cloudflare/acme-email`, `garage-nas/DOZZLE_USERNAME`, `garage-nas/DOZZLE_AUTH` (bcrypt) | ✅ done (login user `admin`; plaintext at `garage-nas/DOZZLE_PASSWORD`) |
-| 6 | **`op://Home Operations/Cloudflare/dns-api-token`** — Cloudflare API token, Zone:DNS:Edit on both zones | ❌ **YOU create** |
-| 7 | **1Password service account** (read on Home Operations) → `/root/.doco-cd/1pw_token` (`chmod 600`) | ❌ **YOU create** |
+| 6 | **`op://Home Operations/Cloudflare/truenas-traefik-dns01`** — Cloudflare API token (Zone:DNS:Edit). `codelooks.com` is the only real CF zone; `*.core.codelooks.com` resolves under it (internal Unbound), so a single-zone token covers DNS-01 for both wildcards | ✅ done (2026-06-15) |
+| 7 | **1Password service account** `doco-cd - TrueNAS Apps` (read on Home Operations) → `/root/.doco-cd/1pw_token` (`chmod 600`) | ✅ done (2026-06-15; token also backed up to `op://Home Operations/doco-cd - TrueNAS Apps/credential`) |
 | 8 | DNS host-overrides applied (`network-ops` `opnsense-dns` playbook) | ⏳ apply **at cutover** (flips syncthing `.33`→`.34` in lockstep with its migration) |
 
-Only **#6 and #7** are left, and both require your 1Password / Cloudflare access.
+All prereqs are done except **#8** (DNS — applied at the syncthing cutover). Ready to bootstrap.
 
 ## Bootstrap (after #6 + #7 are in place)
 
@@ -47,8 +47,8 @@ Only **#6 and #7** are left, and both require your 1Password / Cloudflare access
 # on the NAS:
 git clone https://github.com/LukeEvansTech/truenas-apps.git /root/truenas-apps
 cd /root/truenas-apps/bootstrap && docker compose up -d   # starts doco-cd
-# doco-cd polls this repo and deploys everything in apps/ (traefik, dozzle, monitoring, syncthing).
-# garage stays in staged/ → NOT deployed until adopted (below).
+# doco-cd polls this repo and deploys everything in apps/ (traefik, dozzle, monitoring).
+# syncthing + garage stay in staged/ → NOT deployed yet (syncthing = deferred cutover; garage = post-migration).
 ```
 
 Keep the **bootstrap** itself current with a TrueNAS cron job (apps update via doco-cd polling):
@@ -119,8 +119,9 @@ midclt call reporting.exporters.create '{"enabled": true, "name": "prometheus-gr
 
 ### minio — NOT migrated; decommission after the data migration + producer repoint.
 
-## Status (2026-06-14)
+## Status (2026-06-15)
 
-Garage in-cluster (RF=3) + CNPG cutover live; MinIO→Garage 5 TB migration in progress
-(arq done, veeam ~60%). Prereqs 1–5 done; bootstrap waits on the Cloudflare token (#6) + the
-1Password service account (#7). garage staged out until the migration finishes.
+Garage in-cluster (RF=3) + CNPG cutover live; MinIO→Garage migration ~97% (arq done, veeam tail).
+**All bootstrap prereqs (#1–#7) done** — ready to bring up **traefik + dozzle + monitoring** now.
+**syncthing** is staged out for this first pass (deferred, lower-risk cutover); **garage** stays staged
+until the migration finishes. DNS playbook (#8) applies at the syncthing cutover.
