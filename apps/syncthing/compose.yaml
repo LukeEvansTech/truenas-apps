@@ -1,9 +1,10 @@
 ---
 # Syncthing. GUI fronted by Traefik (HTTPS); sync ports stay direct on the host
-# (peer protocol, can't go through an HTTP proxy). All data consolidated under
-# /mnt/pool/apps/syncthing: config in config/ (copied from the old ix-apps path,
-# carries the device ID/keys — no re-pairing), and the data dataset relocated from
-# pool/syncthing to pool/apps/syncthing/data via `zfs rename` at cutover (see README).
+# (peer protocol, can't go through an HTTP proxy). Config lives under
+# /mnt/pool/apps/syncthing/config (copied from the old ix-apps path, carries the
+# device ID/keys — no re-pairing). The DATA dataset stays at pool/syncthing and is
+# NOT zfs-renamed under apps/: its `sideload` subdir is NFS-exported (consumed by
+# the cluster), so renaming would break the export + the consumers' mount path.
 services:
   syncthing:
     container_name: syncthing
@@ -18,7 +19,7 @@ services:
       STNOUPGRADE: "true"
     volumes:
       - /mnt/pool/apps/syncthing/config:/var/syncthing/config
-      - /mnt/pool/apps/syncthing/data:/syncthing
+      - /mnt/pool/syncthing:/syncthing   # data kept here (sideload is NFS-exported; not renamed under apps/)
     ports:
       - "22000:22000/tcp" # sync protocol
       - "22000:22000/udp" # sync (QUIC)
