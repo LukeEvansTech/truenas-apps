@@ -38,7 +38,9 @@ services:
       - "10.32.8.34:80:80"
       - "10.32.8.34:443:443"
     volumes:
-      - acme:/etc/traefik
+      # acme.json + traefik state on the pool (consolidated under /mnt/pool/apps/*,
+      # snapshotted) rather than an anonymous docker volume on the boot area.
+      - /mnt/pool/apps/traefik:/etc/traefik
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks: ["traefik_network"]
     labels:
@@ -53,9 +55,6 @@ services:
       - "traefik.http.routers.traefik.entrypoints=websecure"
       - "traefik.http.routers.traefik.tls.certresolver=cloudflare"
       - "traefik.http.routers.traefik.service=api@internal"
-
-volumes:
-  acme: {}
 
 networks:
   traefik_network:

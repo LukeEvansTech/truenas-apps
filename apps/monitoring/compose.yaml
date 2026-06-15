@@ -1,6 +1,7 @@
 ---
 # Prometheus exporters scraped by the cluster's Prometheus over the LAN
-# (host networking, NOT behind Traefik): node-exporter :9100, smartctl-exporter :9633.
+# (host networking, NOT behind Traefik): node-exporter :9100, smartctl-exporter :9633,
+# truenas-graphite-exporter :9108 (ZFS/netdata metrics, ingest :9109).
 services:
   node-exporter:
     container_name: node-exporter
@@ -23,3 +24,13 @@ services:
     restart: unless-stopped
     network_mode: host
     privileged: true # required to read SMART data from raw devices
+
+  # ZFS/TrueNAS-native metrics: TrueNAS's built-in netdata pushes Graphite into this
+  # bridge (ingest :9109); it re-exposes Prometheus on :9108. The TrueNAS side is
+  # configured via the REST API (reporting.exporters, type GRAPHITE, prefix=truenas,
+  # dest 127.0.0.1:9109) — host/DB state, NOT in this compose. See README.
+  truenas-graphite-exporter:
+    container_name: truenas-graphite-exporter
+    image: ghcr.io/supporterino/truenas-graphite-to-prometheus:latest
+    restart: unless-stopped
+    network_mode: host # binds :9108 (metrics) + :9109 (graphite ingest)
