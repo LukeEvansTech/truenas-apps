@@ -1,8 +1,11 @@
 ---
-# NAS Garage (S3 backup target) + its web UI. Adopts the existing data at
+# NAS Garage (S3 backup target). Adopts the existing data at
 # /mnt/pool/apps/garage (buckets/layout persist). rpc_secret/admin_token are
-# injected as env from 1Password (NOT in garage.toml -> no secrets in the ConfigMap).
-# S3 + WebUI are fronted by Traefik (HTTPS); admin (3903) stays internal.
+# injected as env from 1Password (NOT in garage.toml -> no secrets in git).
+# S3 is fronted by Traefik (HTTPS); admin (3903) stays internal.
+# NOTE: the garage-webui service is deferred until the
+# op://Home Operations/garage-nas WEBUI_AUTH_USER_PASS field exists
+# (do it alongside the producer-keys cutover, then re-add the webui block).
 configs:
   garage_config:
     file: ./garage.toml
@@ -31,27 +34,6 @@ services:
       - "traefik.http.routers.garage-s3.tls.certresolver=cloudflare"
       - "traefik.http.routers.garage-s3.service=garage-s3"
       - "traefik.http.services.garage-s3.loadbalancer.server.port=3900"
-
-  webui:
-    container_name: garage-webui
-    image: khairul169/garage-webui:1.1.0
-    restart: unless-stopped
-    depends_on: [garage]
-    environment:
-      API_BASE_URL: "http://garage:3903"
-      API_ADMIN_KEY: ${GARAGE_ADMIN_TOKEN}
-      S3_ENDPOINT_URL: "http://garage:3900"
-      S3_REGION: us-east-1
-      AUTH_USER_PASS: ${GARAGE_WEBUI_ADMIN_PASS}
-    expose: ["3909"]
-    networks: ["traefik_network"]
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.garage-webui.rule=Host(`garage-nas.codelooks.com`) || Host(`garage-nas.core.codelooks.com`)"
-      - "traefik.http.routers.garage-webui.entrypoints=websecure"
-      - "traefik.http.routers.garage-webui.tls.certresolver=cloudflare"
-      - "traefik.http.routers.garage-webui.service=garage-webui"
-      - "traefik.http.services.garage-webui.loadbalancer.server.port=3909"
 
 networks:
   traefik_network:
