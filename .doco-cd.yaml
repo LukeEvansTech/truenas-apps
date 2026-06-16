@@ -18,9 +18,8 @@ external_secrets:
   # Dozzle (read-only UI) login
   DOZZLE_ADMIN_USERNAME: op://Home Operations/garage-nas/DOZZLE_USERNAME
   DOZZLE_ADMIN_PASSWORD: op://Home Operations/garage-nas/DOZZLE_AUTH
-  # Garage (NAS S3 target) — adopted into doco-cd 2026-06-15 after the MinIO->Garage
-  # copy+delta verified. RPC/admin auth injected from 1Password.
-  # GARAGE_WEBUI_ADMIN_PASS deferred — re-add with the webui once the garage-nas
-  # WEBUI_AUTH_USER_PASS field is created (op item has no such field yet).
+  # Garage (NAS S3 target) — adopted into doco-cd 2026-06-15. RPC/admin auth +
+  # webui login injected from 1Password.
   GARAGE_RPC_SECRET: op://Home Operations/garage-nas/rpc_secret
   GARAGE_ADMIN_TOKEN: op://Home Operations/garage-nas/admin_token
+  GARAGE_WEBUI_ADMIN_PASS: op://Home Operations/garage-nas/WEBUI_AUTH_USER_PASS
