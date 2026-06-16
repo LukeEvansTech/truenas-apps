@@ -8,7 +8,7 @@
 services:
   syncthing:
     container_name: syncthing
-    image: syncthing/syncthing:2.0.16
+    image: syncthing/syncthing:2.0.16@sha256:4a961394ca471f4e48f31ad2cef50697e502c8799e2e98477a1c3844e0c5bc54
     restart: unless-stopped
     hostname: cr-storage
     environment:

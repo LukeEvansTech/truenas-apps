@@ -15,7 +15,7 @@ secrets:
 services:
   app:
     container_name: doco-cd
-    image: ghcr.io/kimdre/doco-cd:0.92.0
+    image: ghcr.io/kimdre/doco-cd:0.92.0@sha256:d38be697f3191c257a8ddeb2235bf2dc95f5378f7ba76fa4060d25fdd1dc8320
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

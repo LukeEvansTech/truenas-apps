@@ -10,7 +10,7 @@ configs:
 services:
   garage:
     container_name: garage
-    image: dxflrs/garage:v2.3.0
+    image: dxflrs/garage:v2.3.0@sha256:866bd13ed2038ba7e7190e840482bc27234c4afaf77be8cfa439ae088c1e4690
     restart: unless-stopped
     configs:
       - source: garage_config
@@ -34,7 +34,7 @@ services:
 
   webui:
     container_name: garage-webui
-    image: khairul169/garage-webui:1.1.0
+    image: khairul169/garage-webui:1.1.0@sha256:17c793551873155065bf9a022dabcde874de808a1f26e648d4b82e168806439c
     restart: unless-stopped
     depends_on: [garage]
     environment:

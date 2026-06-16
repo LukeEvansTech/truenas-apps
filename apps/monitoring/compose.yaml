@@ -5,7 +5,7 @@
 services:
   node-exporter:
     container_name: node-exporter
-    image: quay.io/prometheus/node-exporter:latest
+    image: quay.io/prometheus/node-exporter:latest@sha256:0f422f62c15f154af8d8572b23d623aebfb10cec73a5c654d18f911f3f9df241
     restart: unless-stopped
     network_mode: host
     pid: host
@@ -20,7 +20,7 @@ services:
 
   smartctl-exporter:
     container_name: smartctl-exporter
-    image: quay.io/prometheuscommunity/smartctl-exporter:latest
+    image: quay.io/prometheuscommunity/smartctl-exporter:latest@sha256:cfe22c36d7d2fac48ebf619707305acb65eb0fb670656eb80f356e606d782bc1
     restart: unless-stopped
     network_mode: host
     privileged: true # required to read SMART data from raw devices
@@ -31,6 +31,6 @@ services:
   # dest 127.0.0.1:9109) — host/DB state, NOT in this compose. See README.
   truenas-graphite-exporter:
     container_name: truenas-graphite-exporter
-    image: ghcr.io/supporterino/truenas-graphite-to-prometheus:latest
+    image: ghcr.io/supporterino/truenas-graphite-to-prometheus:latest@sha256:60e7645f74a3243d7fb9e6a15c05ea3b4cddfd2bc7ba9e2b11321ce1d38286dd
     restart: unless-stopped
     network_mode: host # binds :9108 (metrics) + :9109 (graphite ingest)
