@@ -34,3 +34,19 @@ services:
     image: ghcr.io/supporterino/truenas-graphite-to-prometheus:v2.2.1@sha256:60e7645f74a3243d7fb9e6a15c05ea3b4cddfd2bc7ba9e2b11321ce1d38286dd
     restart: unless-stopped
     network_mode: host # binds :9108 (metrics) + :9109 (graphite ingest)
+
+  # Per-container Docker state for lifecycle alerting (:9419). Exposes
+  # container_state_status / _health_status / container_restartcount /
+  # container_state_oomkilled keyed by container NAME — which the graphite
+  # bridge's cgroup_* series (keyed by container ID, and absent once a container
+  # stops) cannot give. Reads the docker socket read-only. Upstream publishes
+  # only :latest (no version tags / GitHub releases) — pinned by digest, Renovate
+  # tracks digest bumps. Scraped by the cluster's truenas-docker-exporter job.
+  docker-state-exporter:
+    container_name: docker-state-exporter
+    image: karugaru/docker_state_exporter:latest@sha256:99d984a57dd11d0d3b53d56481dec51be7a0ad7c2a7aa80a95db2facd294c60a
+    restart: unless-stopped
+    network_mode: host
+    command: ["-listen-address=:9419"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
