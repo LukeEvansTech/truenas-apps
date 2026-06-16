@@ -4,7 +4,7 @@ configs:
   users.yml:
     content: |
       users:
-        admin:
+        dozzle:
           name: "${DOZZLE_ADMIN_USERNAME}"
           password: "${DOZZLE_ADMIN_PASSWORD}"
 
