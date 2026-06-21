@@ -17,9 +17,9 @@ secrets in git. Modelled on [mirceanton/truenas-apps](https://github.com/mircean
 | `bootstrap/compose.yaml` | the doco-cd controller (deployed once; polls this repo). State at `/mnt/pool/apps/doco-cd/data`                |
 | `apps/traefik/`          | reverse proxy on `10.32.8.34`, wildcard TLS for `*.codelooks.com` + `*.core.codelooks.com` (Cloudflare DNS-01). acme/state at `/mnt/pool/apps/traefik` |
 | `apps/dozzle/`           | read-only container/log UI (`dozzle.…`)                                                                        |
-| `apps/monitoring/`       | node-exporter + smartctl-exporter (host network, scraped by cluster Prometheus)                                |
-| `staged/syncthing/`      | **Syncthing — staged OUT of `apps/`** for the interim rollout (bring up traefik/dozzle/monitoring first); deferred cutover moves it back to `apps/syncthing/`. config+data at `/mnt/pool/apps/syncthing/{config,data}` |
-| `staged/garage/`         | **Garage S3 — staged OUT of `apps/`** until the MinIO→Garage migration finishes (see below). Move back into `apps/garage/` to deploy. Data at `/mnt/pool/apps/garage` |
+| `apps/monitoring/`       | node-exporter `:9100` + smartctl-exporter `:9633` + truenas-graphite bridge `:9108` (ingest `:9109`) + docker-state-exporter `:9419` (host network, scraped by cluster Prometheus) |
+| `apps/syncthing/`        | Syncthing (`syncthing.…`); carries the device ID/keys so the Mac↔box pairing survives. config+data at `/mnt/pool/apps/syncthing/{config,data}` |
+| `apps/garage/`           | Garage S3 (`s3-nas.…`) + webui (`garage-nas.…`), fronted by Traefik. Data at `/mnt/pool/apps/garage` |
 
 ## Hostnames (resolve to `10.32.8.34` via OPNsense Unbound)
 
@@ -37,9 +37,9 @@ secrets in git. Modelled on [mirceanton/truenas-apps](https://github.com/mircean
 | 5 | `op` items: `Cloudflare/acme-email`, `garage-nas/DOZZLE_USERNAME`, `garage-nas/DOZZLE_AUTH` (bcrypt) | ✅ done (login user `admin`; plaintext at `garage-nas/DOZZLE_PASSWORD`) |
 | 6 | **`op://Home Operations/Cloudflare/truenas-traefik-dns01`** — Cloudflare API token (Zone:DNS:Edit). `codelooks.com` is the only real CF zone; `*.core.codelooks.com` resolves under it (internal Unbound), so a single-zone token covers DNS-01 for both wildcards | ✅ done (2026-06-15) |
 | 7 | **1Password service account** `doco-cd - TrueNAS Apps` (read on Home Operations) → `/root/.doco-cd/1pw_token` (`chmod 600`) | ✅ done (2026-06-15; token also backed up to `op://Home Operations/doco-cd - TrueNAS Apps/credential`) |
-| 8 | DNS host-overrides applied (`network-ops` `opnsense-dns` playbook) | ⏳ apply **at cutover** (flips syncthing `.33`→`.34` in lockstep with its migration) |
+| 8 | DNS host-overrides applied (`network-ops` `opnsense-dns` playbook) | ✅ done (all hosts → `10.32.8.34`; applied at the syncthing cutover) |
 
-All prereqs are done except **#8** (DNS — applied at the syncthing cutover). Ready to bootstrap.
+All prereqs done — doco-cd is bootstrapped and reconciling.
 
 ## Bootstrap (after #6 + #7 are in place)
 
@@ -47,17 +47,17 @@ All prereqs are done except **#8** (DNS — applied at the syncthing cutover). R
 # on the NAS:
 git clone https://github.com/LukeEvansTech/truenas-apps.git /root/truenas-apps
 cd /root/truenas-apps/bootstrap && docker compose up -d   # starts doco-cd
-# doco-cd polls this repo and deploys everything in apps/ (traefik, dozzle, monitoring).
-# syncthing + garage stay in staged/ → NOT deployed yet (syncthing = deferred cutover; garage = post-migration).
+# doco-cd polls this repo and deploys every stack in apps/ (traefik, dozzle, monitoring, syncthing, garage).
 ```
 
 Keep the **bootstrap** itself current with a TrueNAS cron job (apps update via doco-cd polling):
 `/root/truenas-apps/scripts/cron.sh /root/truenas-apps`.
 
-## Cutover notes (existing instances — preserve their data)
+## Cutover notes (how the pre-existing instances were migrated — kept for reference)
 
-These apps already run (as `ix-*` apps or standalone containers). doco-cd will collide on
-container names / host ports, so retire the old instance as each stack comes up.
+Each of these previously ran as an `ix-*` app or standalone container. doco-cd collides on
+container names / host ports, so the old instance was retired as each stack came up. All are
+now live under `apps/`; the procedures below are retained as the record of how the data moved.
 
 ### syncthing — config + data both move under `/mnt/pool/apps/syncthing`
 
@@ -109,19 +109,27 @@ midclt call reporting.exporters.create '{"enabled": true, "name": "prometheus-gr
 > middleware-overwritten on update, so prefer retuning the dashboards). No pool *state*/scrub
 > chart exists on this box. `prefix` MUST be `truenas` (the mapping hardcodes it).
 
-### garage — adopt only AFTER the MinIO→Garage migration completes
+### garage — adopted ✅ (2026-06-15, after the MinIO→Garage migration completed)
 
-1. Restore the three `GARAGE_*` refs in `.doco-cd.yaml` (commented there).
-2. `git mv staged/garage apps/garage` (move it back so auto-discover deploys it).
-3. doco-cd recreates the container on the **same `/mnt/pool/apps/garage` data** — buckets/layout
-   persist. S3 then fronts at `https://s3-nas.codelooks.com`; repoint the k8s cluster→NAS sync
-   CronJob endpoint + Veeam/Arq to that HTTPS host.
+The MinIO→Garage data migration is **done and verified** (veeam + arq object counts exact-match,
+0 errors). Garage was then adopted into doco-cd by:
 
-### minio — NOT migrated; decommission after the data migration + producer repoint.
+1. Restoring the three `GARAGE_*` refs in `.doco-cd.yaml`.
+2. `git mv staged/garage apps/garage` so auto-discover deploys it.
+3. doco-cd recreated the container on the **same `/mnt/pool/apps/garage` data** — buckets/layout
+   persisted. S3 now fronts at `https://s3-nas.codelooks.com` (webui `https://garage-nas.codelooks.com`);
+   the k8s cluster→NAS sync CronJob is repointed to that HTTPS host.
 
-## Status (2026-06-15)
+### minio — suspended (data retained), pending producer repoint → then decommission
 
-Garage in-cluster (RF=3) + CNPG cutover live; MinIO→Garage migration ~97% (arq done, veeam tail).
-**All bootstrap prereqs (#1–#7) done** — ready to bring up **traefik + dozzle + monitoring** now.
-**syncthing** is staged out for this first pass (deferred, lower-risk cutover); **garage** stays staged
-until the migration finishes. DNS playbook (#8) applies at the syncthing cutover.
+MinIO is **stopped** (`midclt call app.stop minio`; data still on disk, not destroyed). Remaining:
+repoint the **Veeam/Arq** producers to `s3-nas`, verify writes, then decommission MinIO and disable
+the deprecated `s3` service.
+
+## Status (2026-06-21)
+
+All five stacks (**traefik · dozzle · monitoring · syncthing · garage**) are live under `apps/` and
+reconciling via doco-cd; `staged/` is empty. The MinIO→Garage migration is complete and verified
+(veeam + arq object counts exact-match, 0 errors); Garage S3 fronts at `https://s3-nas.codelooks.com`.
+Remaining: repoint the **Veeam/Arq** producers to `s3-nas`, then decommission the suspended MinIO and
+disable the deprecated `s3` service.
