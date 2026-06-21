@@ -1,0 +1,48 @@
+---
+# Scrutiny — S.M.A.R.T. disk-health dashboard (historical trends + real-world
+# Backblaze failure thresholds). The *omnibus* image bundles all three parts in
+# ONE container: the web UI, an embedded InfluxDB (metrics history), and a
+# collector that runs `smartctl` against the raw disks on an internal cron.
+#
+# Fronted by Traefik at https://scrutiny-nas.codelooks.com (the embedded InfluxDB
+# admin on :8086 is NEVER exposed — only :8080 is routed). The collector needs raw
+# device access, granted with `privileged: true` exactly like apps/monitoring's
+# smartctl-exporter. NOTE this DUPLICATES the SMART read smartctl-exporter already
+# does — intentional: Scrutiny is the human trends UI, smartctl-exporter feeds the
+# Grafana dashboards + Pushover alerting. Both are kept.
+#
+# Scrutiny has NO built-in auth, so the dashboard is open to anything that can
+# reach it on the LAN (internal DNS + Traefik only). To lock it down, add a Traefik
+# basicauth middleware — but create the 1Password field FIRST: doco-cd resolves
+# external_secrets all-or-nothing, so referencing a missing op:// field breaks every
+# stack. Left unauthenticated for now (see README).
+#
+# `master-omnibus` is a rolling release tag (like :latest) — pinned by digest here;
+# Renovate (shared config, docker:pinDigests) tracks the digest bumps.
+services:
+  scrutiny:
+    container_name: scrutiny
+    image: ghcr.io/analogj/scrutiny:master-omnibus@sha256:18689773150d6b8b53c94a435f40f7b6e946fd4a6d40b44c64fa2154a5b38941
+    restart: unless-stopped
+    privileged: true # raw SMART access for the bundled collector (cf. smartctl-exporter)
+    environment:
+      # Collect every 6h + once on startup (don't wait for the first cron tick so the
+      # dashboard is populated immediately after deploy).
+      COLLECTOR_CRON_SCHEDULE: "0 */6 * * *"
+      COLLECTOR_RUN_STARTUP: "true"
+    volumes:
+      - /run/udev:/run/udev:ro # device metadata (model/serial/by-id) for nicer naming
+      - /mnt/pool/apps/scrutiny/config:/opt/scrutiny/config
+      - /mnt/pool/apps/scrutiny/influxdb:/opt/scrutiny/influxdb
+    expose: ["8080"]
+    networks: ["traefik_network"]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.scrutiny.rule=Host(`scrutiny-nas.codelooks.com`) || Host(`scrutiny-nas.core.codelooks.com`)"
+      - "traefik.http.routers.scrutiny.entrypoints=websecure"
+      - "traefik.http.routers.scrutiny.tls.certresolver=cloudflare"
+      - "traefik.http.services.scrutiny.loadbalancer.server.port=8080"
+
+networks:
+  traefik_network:
+    external: true
