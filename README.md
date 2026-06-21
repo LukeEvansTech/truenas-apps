@@ -20,10 +20,11 @@ secrets in git. Modelled on [mirceanton/truenas-apps](https://github.com/mircean
 | `apps/monitoring/`       | node-exporter `:9100` + smartctl-exporter `:9633` + truenas-graphite bridge `:9108` (ingest `:9109`) + docker-state-exporter `:9419` (host network, scraped by cluster Prometheus) |
 | `apps/syncthing/`        | Syncthing (`syncthing.…`); carries the device ID/keys so the Mac↔box pairing survives. config+data at `/mnt/pool/apps/syncthing/{config,data}` |
 | `apps/garage/`           | Garage S3 (`s3-nas.…`) + webui (`garage-nas.…`), fronted by Traefik. Data at `/mnt/pool/apps/garage` |
+| `apps/scrutiny/`         | Scrutiny S.M.A.R.T. disk-health dashboard (`scrutiny-nas.…`), omnibus (web + embedded InfluxDB + cron collector). config+influxdb at `/mnt/pool/apps/scrutiny` |
 
 ## Hostnames (resolve to `10.32.8.34` via OPNsense Unbound)
 
-`traefik` · `garage-nas` · `s3-nas` · `dozzle` · `syncthing` — each under both
+`traefik` · `garage-nas` · `s3-nas` · `dozzle` · `syncthing` · `scrutiny-nas` — each under both
 `codelooks.com` and `core.codelooks.com`.
 
 ## Prerequisites (one-time, before bootstrap)
@@ -126,10 +127,33 @@ MinIO is **stopped** (`midclt call app.stop minio`; data still on disk, not dest
 repoint the **Veeam/Arq** producers to `s3-nas`, verify writes, then decommission MinIO and disable
 the deprecated `s3` service.
 
+## Scrutiny (disk-health dashboard)
+
+Omnibus image = web UI + embedded InfluxDB + an internal cron collector that runs `smartctl` against
+the raw disks (`privileged: true`, same access pattern as `smartctl-exporter`). It **duplicates** the
+SMART read `smartctl-exporter` already does — intentional: Scrutiny is the human trends UI (with
+Backblaze real-world failure thresholds), `smartctl-exporter` feeds Grafana + Pushover alerting.
+
+Host-side bits (both done at deploy):
+
+| # | Prereq | Why |
+| - | ------ | --- |
+| 1 | Dataset `pool/apps/scrutiny` (holds `config/` + `influxdb/`) | persistence on the pool, snapshotted (bind mounts otherwise auto-create as root on first start) |
+| 2 | DNS host-overrides `scrutiny-nas.{codelooks.com,core.codelooks.com}` → `10.32.8.34` (OPNsense Unbound) | name resolution |
+
+> Distinct from the cluster's `scrutiny.codelooks.com` (→ `10.32.8.87`); the `-nas` suffix mirrors
+> `garage-nas`/`s3-nas`.
+
+**No auth:** Scrutiny has no built-in login, so the dashboard is open to anything that can reach it on
+the LAN (internal DNS + Traefik only). Traefik CE has no form-login middleware either — a real login
+form needs a forward-auth provider (tinyauth / Authelia / Authentik) in front. If added, create the
+1Password field **first**: doco-cd resolves `external_secrets` all-or-nothing, so a missing `op://`
+ref breaks every stack. Shipped unauthenticated for now.
+
 ## Status (2026-06-21)
 
-All five stacks (**traefik · dozzle · monitoring · syncthing · garage**) are live under `apps/` and
-reconciling via doco-cd; `staged/` is empty. The MinIO→Garage migration is complete and verified
-(veeam + arq object counts exact-match, 0 errors); Garage S3 fronts at `https://s3-nas.codelooks.com`.
-Remaining: repoint the **Veeam/Arq** producers to `s3-nas`, then decommission the suspended MinIO and
-disable the deprecated `s3` service.
+All six stacks (**traefik · dozzle · monitoring · syncthing · garage · scrutiny**) are live under
+`apps/` and reconciling via doco-cd; `staged/` is empty. The MinIO→Garage migration is complete and
+verified (veeam + arq object counts exact-match, 0 errors); Garage S3 fronts at
+`https://s3-nas.codelooks.com`. Remaining: repoint the **Veeam/Arq** producers to `s3-nas`, then
+decommission the suspended MinIO and disable the deprecated `s3` service.
