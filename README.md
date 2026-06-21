@@ -1,9 +1,9 @@
 # truenas-apps
 
 GitOps source of truth for the Docker apps running on the **cr-storage** TrueNAS box,
-managed by [doco-cd](https://doco.cd) (Flux-style: this repo is the single source of truth;
+managed by [doco-cd](https://doco.cd) (Flux-style: this repository is the single source of truth;
 doco-cd polls it and reconciles). Secrets are injected from **1Password** at deploy time — no
-secrets in git. Modelled on [mirceanton/truenas-apps](https://github.com/mirceanton/truenas-apps).
+secrets in Git. Modelled on [mirceanton/truenas-apps](https://github.com/mirceanton/truenas-apps).
 
 > Replaces the GUI-managed TrueNAS catalog apps (`ix-*`) with declarative compose stacks.
 > **All app data is consolidated under `/mnt/pool/apps/<app>/…`** (on the pool, snapshotted) —
@@ -11,16 +11,16 @@ secrets in git. Modelled on [mirceanton/truenas-apps](https://github.com/mircean
 
 ## Layout
 
-| Path                     | What                                                                                                           |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| `.doco-cd.yaml`          | doco-cd config — auto-discovers `apps/*`, maps `op://` → env                                                   |
-| `bootstrap/compose.yaml` | the doco-cd controller (deployed once; polls this repo). State at `/mnt/pool/apps/doco-cd/data`                |
-| `apps/traefik/`          | reverse proxy on `10.32.8.34`, wildcard TLS for `*.codelooks.com` + `*.core.codelooks.com` (Cloudflare DNS-01). acme/state at `/mnt/pool/apps/traefik` |
-| `apps/dozzle/`           | read-only container/log UI (`dozzle.…`)                                                                        |
+| Path                     | What                                                                                                                                                                               |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.doco-cd.yaml`          | doco-cd config — auto-discovers `apps/*`, maps `op://` → env                                                                                                                       |
+| `bootstrap/compose.yaml` | the doco-cd controller (deployed once; polls this repository). State at `/mnt/pool/apps/doco-cd/data`                                                                              |
+| `apps/traefik/`          | reverse proxy on `10.32.8.34`, wildcard TLS for `*.codelooks.com` + `*.core.codelooks.com` (Cloudflare DNS-01). acme/state at `/mnt/pool/apps/traefik`                             |
+| `apps/dozzle/`           | read-only container/log UI (`dozzle.…`)                                                                                                                                            |
 | `apps/monitoring/`       | node-exporter `:9100` + smartctl-exporter `:9633` + truenas-graphite bridge `:9108` (ingest `:9109`) + docker-state-exporter `:9419` (host network, scraped by cluster Prometheus) |
-| `apps/syncthing/`        | Syncthing (`syncthing.…`); carries the device ID/keys so the Mac↔box pairing survives. config+data at `/mnt/pool/apps/syncthing/{config,data}` |
-| `apps/garage/`           | Garage S3 (`s3-nas.…`) + webui (`garage-nas.…`), fronted by Traefik. Data at `/mnt/pool/apps/garage` |
-| `apps/scrutiny/`         | Scrutiny S.M.A.R.T. disk-health dashboard (`scrutiny-nas.…`), omnibus (web + embedded InfluxDB + cron collector). config+influxdb at `/mnt/pool/apps/scrutiny` |
+| `apps/syncthing/`        | Syncthing (`syncthing.…`); carries the device ID/keys so the Mac↔box pairing survives. config+data at `/mnt/pool/apps/syncthing/{config,data}`                                     |
+| `apps/garage/`           | Garage S3 (`s3-nas.…`) + webui (`garage-nas.…`), fronted by Traefik. Data at `/mnt/pool/apps/garage`                                                                               |
+| `apps/scrutiny/`         | Scrutiny S.M.A.R.T. disk-health dashboard (`scrutiny-nas.…`), omnibus (web + embedded InfluxDB + cron collector). config+influxdb at `/mnt/pool/apps/scrutiny`                     |
 
 ## Hostnames (resolve to `10.32.8.34` via OPNsense Unbound)
 
@@ -29,16 +29,16 @@ secrets in git. Modelled on [mirceanton/truenas-apps](https://github.com/mircean
 
 ## Prerequisites (one-time, before bootstrap)
 
-| # | Prereq | State |
-| - | ------ | ----- |
-| 1 | Alias IP `10.32.8.34/24` on `bond0` (Traefik binds it; UI owns `.33`) | ✅ done (network-ops PR #61, via `midclt`) |
-| 2 | UI rebound `ui_address` `0.0.0.0`→`10.32.8.33` so `.34:443` is free | ✅ done (verified `.34:443` refuses) |
-| 3 | `docker network create traefik_network` | ✅ done |
-| 4 | Datasets `pool/apps/{traefik,doco-cd,syncthing}` | ✅ done |
-| 5 | `op` items: `Cloudflare/acme-email`, `garage-nas/DOZZLE_USERNAME`, `garage-nas/DOZZLE_AUTH` (bcrypt) | ✅ done (login user `admin`; plaintext at `garage-nas/DOZZLE_PASSWORD`) |
-| 6 | **`op://Home Operations/Cloudflare/truenas-traefik-dns01`** — Cloudflare API token (Zone:DNS:Edit). `codelooks.com` is the only real CF zone; `*.core.codelooks.com` resolves under it (internal Unbound), so a single-zone token covers DNS-01 for both wildcards | ✅ done (2026-06-15) |
-| 7 | **1Password service account** `doco-cd - TrueNAS Apps` (read on Home Operations) → `/root/.doco-cd/1pw_token` (`chmod 600`) | ✅ done (2026-06-15; token also backed up to `op://Home Operations/doco-cd - TrueNAS Apps/credential`) |
-| 8 | DNS host-overrides applied (`network-ops` `opnsense-dns` playbook) | ✅ done (all hosts → `10.32.8.34`; applied at the syncthing cutover) |
+| #   | Prereq                                                                                                                                                                                                                                                             | State                                                                                                  |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| 1   | Alias IP `10.32.8.34/24` on `bond0` (Traefik binds it; UI owns `.33`)                                                                                                                                                                                              | ✅ done (network-ops PR #61, via `midclt`)                                                             |
+| 2   | UI rebound `ui_address` `0.0.0.0`→`10.32.8.33` so `.34:443` is free                                                                                                                                                                                                | ✅ done (verified `.34:443` refuses)                                                                   |
+| 3   | `docker network create traefik_network`                                                                                                                                                                                                                            | ✅ done                                                                                                |
+| 4   | Datasets `pool/apps/{traefik,doco-cd,syncthing}`                                                                                                                                                                                                                   | ✅ done                                                                                                |
+| 5   | `op` items: `Cloudflare/acme-email`, `garage-nas/DOZZLE_USERNAME`, `garage-nas/DOZZLE_AUTH` (bcrypt)                                                                                                                                                               | ✅ done (login user `admin`; plaintext at `garage-nas/DOZZLE_PASSWORD`)                                |
+| 6   | **`op://Home Operations/Cloudflare/truenas-traefik-dns01`** — Cloudflare API token (Zone:DNS:Edit). `codelooks.com` is the only real CF zone; `*.core.codelooks.com` resolves under it (internal Unbound), so a single-zone token covers DNS-01 for both wildcards | ✅ done (2026-06-15)                                                                                   |
+| 7   | **1Password service account** `doco-cd - TrueNAS Apps` (read on Home Operations) → `/root/.doco-cd/1pw_token` (`chmod 600`)                                                                                                                                        | ✅ done (2026-06-15; token also backed up to `op://Home Operations/doco-cd - TrueNAS Apps/credential`) |
+| 8   | DNS host-overrides applied (`network-ops` `opnsense-dns` playbook)                                                                                                                                                                                                 | ✅ done (all hosts → `10.32.8.34`; applied at the syncthing cutover)                                   |
 
 All prereqs done — doco-cd is bootstrapped and reconciling.
 
@@ -101,13 +101,13 @@ midclt call reporting.exporters.create '{"enabled": true, "name": "prometheus-gr
   "update_every": 10, "send_names_instead_of_ids": true, "matching_charts": "*"}}'
 ```
 
-> **Metric-naming caveat:** TrueNAS 25.10 netdata emits *custom* charts (`truenas_arcstats`,
+> **Metric-naming caveat:** TrueNAS 25.10 netdata emits _custom_ charts (`truenas_arcstats`,
 > `truenas_disk_stats`, `truenas_pool.usage`, `truenas_disk_temp`) — not the vanilla netdata
 > charts (`zfs.arcstats`, `disk.io`) the bridge's baked mapping + the 5 upstream Grafana
 > dashboards expect. So the exporter is **up and serving ARC / disk I/O / temps / pool-usage**,
 > but the upstream dashboards need retuning to the `truenas_*` names (or deploy the upstream
 > `netdata.conf` to switch netdata to vanilla charts — risks the TrueNAS Reporting UI + is
-> middleware-overwritten on update, so prefer retuning the dashboards). No pool *state*/scrub
+> middleware-overwritten on update, so prefer retuning the dashboards). No pool _state_/scrub
 > chart exists on this box. `prefix` MUST be `truenas` (the mapping hardcodes it).
 
 ### garage — adopted ✅ (2026-06-15, after the MinIO→Garage migration completed)
@@ -136,10 +136,10 @@ Backblaze real-world failure thresholds), `smartctl-exporter` feeds Grafana + Pu
 
 Host-side bits (both done at deploy):
 
-| # | Prereq | Why |
-| - | ------ | --- |
-| 1 | Dataset `pool/apps/scrutiny` (holds `config/` + `influxdb/`) | persistence on the pool, snapshotted (bind mounts otherwise auto-create as root on first start) |
-| 2 | DNS host-overrides `scrutiny-nas.{codelooks.com,core.codelooks.com}` → `10.32.8.34` (OPNsense Unbound) | name resolution |
+| #   | Prereq                                                                                                 | Why                                                                                             |
+| --- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| 1   | Dataset `pool/apps/scrutiny` (holds `config/` + `influxdb/`)                                           | persistence on the pool, snapshotted (bind mounts otherwise auto-create as root on first start) |
+| 2   | DNS host-overrides `scrutiny-nas.{codelooks.com,core.codelooks.com}` → `10.32.8.34` (OPNsense Unbound) | name resolution                                                                                 |
 
 > Distinct from the cluster's `scrutiny.codelooks.com` (→ `10.32.8.87`); the `-nas` suffix mirrors
 > `garage-nas`/`s3-nas`.
